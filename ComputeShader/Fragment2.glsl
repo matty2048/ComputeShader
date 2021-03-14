@@ -11,6 +11,7 @@ void main()
 {
     float exposure = 1.5;
    const float gamma = 1.2;
+   //gonna add some denoising here
     vec3 hdrColor = texture(texture1, texcoords).rgb;
   
     // exposure tone mapping

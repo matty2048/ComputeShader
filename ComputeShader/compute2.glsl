@@ -98,6 +98,7 @@ struct Ray
 	vec3 origin;
 	vec3 dir;
 	vec3 energy;
+	vec3 absorb;
 };
 
 Ray CreateRay(vec3 origin,vec3 direction)
@@ -106,6 +107,7 @@ Ray CreateRay(vec3 origin,vec3 direction)
 	ray.origin = origin;
 	ray.dir = direction;
 	ray.energy = vec3(1.0);
+	ray.absorb = vec3(0.);
 	return ray;
 };
 
@@ -338,16 +340,6 @@ float SmoothnessToPhongAlpha(float s)
     return pow(1000.0f, s * s);
 }
 
-vec3 refrac(vec3 v, vec3 n,float ior)
-{
-	vec3 o;
-	float ctheta = dot(v,n);
-	float stheta2 = pow(ior,2) * (1-pow(ctheta,2));
-
-	o = ior * v - ((ior * ctheta) +sqrt(1-stheta2)) * n;
-
-	return o;
-}
 
 float fresnel(vec3 v, vec3 n, float ior)
 {
@@ -378,14 +370,24 @@ vec3 Shade(inout Ray ray, RayHit hit)
 			if(hit.volumetric.x > 0 )
 			{
 				ray.origin = hit.position - hit.normal*0.001; //moves ray into sphere
-				if(hit.inside) ray.energy *= exp(-dist * vec3(0.1,0.1,0.1) * 7);
+				if(!hit.inside){ ray.absorb = vec3(0.1,0.1,0.1) * 7;
+								
+								}
+				if(hit.inside){ 
+								ray.energy *= exp(-dist * ray.absorb);
+								ray.absorb = vec3(0);
+				}
 				return hit.emmission;
 			}
 			if(hit.transparency.x * fresnel(ray.dir,hit.normal,hit.transparency.y)  >  rand()){ 
 				float dist = distance(ray.origin , hit.position); //returns how far the ray has traveled inside the medium
 				ray.dir = refract(ray.dir,hit.normal, hit.ior);
 				ray.origin = hit.position - hit.normal*0.001; //moves ray into sphere
-				if(hit.ior > 1) ray.energy *= exp(-dist * vec3(0,0.9,0.9) * 2); //calculates the light only runs for the ray within the 
+				//if(hit.ior > 1) ray.energy *= exp(-dist * vec3(0,0.9,0.9) * 2); //calculates the light only runs for the ray within the 
+				if(hit.ior < 1)		ray.absorb = vec3(0.0,0.0,0.0) * 1;
+				if(hit.ior > 1){	ray.energy *= exp(-dist * ray.absorb);
+									ray.absorb = vec3(0);
+								}
 				return hit.emmission;
 			}
 			hit.albedo = min(1.0-hit.specular,hit.albedo);
@@ -403,13 +405,13 @@ vec3 Shade(inout Ray ray, RayHit hit)
 				ray.origin = hit.position + hit.normal * 0.001; //moves the origin of the ray slightly away from the sphere
 				ray.dir = SampleHemisphere(reflect(ray.dir,hit.normal),alpha); //samples from the hemisphere in the perfect reflection direction
 				float f = (alpha + 2)/(alpha + 1);   //some magic
-				ray.energy *= (1.0f/specChance)*hit.specular*sdot(hit.normal,ray.dir,f); //updates the rays energy 
+				ray.energy *= (1.0f/specChance)*hit.specular*sdot(hit.normal,ray.dir,f) * exp(-dist * ray.absorb); //updates the rays energy 
 			}
 			else{
 				//diffuse shading
 				ray.origin = hit.position + hit.normal *0.001; //moves away from object slightly to avoid acne 
 				ray.dir = SampleHemisphere(hit.normal,1.0f); //looks in circle centred arround the hit point
-				ray.energy *= (1.0f/DiffChance) * 2 * hit.albedo * sdot(hit.normal,ray.dir,1.0f); //updates ray energy
+				ray.energy *= (1.0f/DiffChance) * 2 * hit.albedo * sdot(hit.normal,ray.dir,1.0f)* exp(-dist * ray.absorb);; //updates ray energy
 			}
 
 			return hit.emmission;
@@ -433,18 +435,21 @@ void main(){
 	_Seed = seed;
 	pixel_coords = ivec2(gl_GlobalInvocationID.xy);
 	pix = gl_GlobalInvocationID.xy;
-	PixelOffset = vec2(rand(),rand());
 	uvec2 dims = imageSize(img_output);
+
+
+	vec3 result = vec3(0.0f);
+	PixelOffset = vec2(rand(),rand());
 	vec2 uv = vec2((gl_GlobalInvocationID.xy + (PixelOffset))  / dims * 2.0f - 1.0f);
 	Ray ray = CreateCameraRay(uv);
-	vec3 result = vec3(0.0f);
 	for(int i = 0; i<16; i++)
 	{
 		if(!any(testrayenergy(ray.energy))) break;
 		RayHit hit = Trace(ray);
 		vec3 rayenergytemp = ray.energy;
 		result += rayenergytemp * Shade(ray,hit);
-	}
+	}	  
+
 	imageStore(img_output, pixel_coords, vec4(result,0));
 	return;
 }
