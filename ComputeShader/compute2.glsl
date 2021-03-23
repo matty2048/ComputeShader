@@ -11,7 +11,7 @@ uniform mat4 CameraInverseProjection;
 uniform samplerCube skybox;
 uniform float seed;
 shared vec4 pixel[numsamples];
-
+uniform float power;
 
 struct mat{
 	vec4 albedo;
@@ -305,6 +305,113 @@ bool AABB_Intersect(Ray ray, vec3 min_p, vec3 max_p) //checks for an intersectio
 	
 
 }
+
+float DE(vec3 pos) {
+	vec3 z = pos;
+	float dr = 1.0;
+	float r = 0.0;
+	int Iterations = 10;
+	float Power = power;
+	float Bailout = 10;
+	for (int i = 0; i < Iterations ; i++) {
+		r = length(z);
+		if (r>Bailout) break;
+		
+		// convert to polar coordinates
+		float theta = acos(z.z/r);
+		float phi = atan(z.y,z.x);
+		dr =  pow( r, Power-1.0)*Power*dr + 1.0;
+		
+		// scale and rotate the point
+		float zr = pow( r,Power);
+		theta = theta*Power;
+		phi = phi*Power;
+		
+		// convert back to cartesian coordinates
+		z = zr*vec3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z+=pos;
+	}
+	return 0.5*log(r)*r/dr;
+}
+
+
+
+//float DE(vec3 z)
+//{
+//	vec3 a1 = vec3(1,1,1);
+//	vec3 a2 = vec3(-1,-1,1);
+//	vec3 a3 = vec3(1,-1,-1);
+//	vec3 a4 = vec3(-1,1,-1);
+//	vec3 c;
+//	int n = 0;
+//	float Scale = 2;
+//	int Iterations = 4;
+//	float dist, d;
+//	while (n < Iterations) {
+//		 c = a1; dist = length(z-a1);
+//	        d = length(z-a2); if (d < dist) { c = a2; dist=d; }
+//		 d = length(z-a3); if (d < dist) { c = a3; dist=d; }
+//		 d = length(z-a4); if (d < dist) { c = a4; dist=d; }
+//		z = Scale*z-c*(Scale-1.0);
+//		n++;
+//	}
+//
+//	return length(z) * pow(Scale, float(-n));
+//}
+
+//float DE(vec3 z)
+//{
+//  z.xy = mod((z.xy),1.0) - vec2(0.5); // instance on xy-plane
+//  return length(z)-0.3;             // sphere DE
+//}
+
+
+void IntersectFractal(inout RayHit BestHit,Ray ray)
+{
+	float t = 0;
+	float dt = 0; //sets the initial distance estimate to infinity
+	vec3 from = ray.origin; //gets the origin location of the ray
+	vec3 direction = ray.dir; //the direction of the ray
+	int MaximumRaySteps = 100;
+	float totalDistance = 0;
+	float MinimumDistance = 0.000000001;
+	float mindist = pos_infinity;
+	int steps;
+	for (steps = 0; steps < MaximumRaySteps; steps++) {
+		ray.origin = from + totalDistance * direction;
+		float dist = DE(ray.origin);
+		totalDistance += dist;
+		mindist = min(mindist,dist);
+		if (dist < MinimumDistance) break;
+	}
+
+	
+	t = totalDistance;
+	if(t > 100) t = pos_infinity;
+	else
+	if (t > 0 && t < BestHit.dist)
+	{
+	vec3 pos = at(ray,t);
+	vec3 xDir = vec3(1,0,0);
+	vec3 yDir = vec3(0,1,0);
+	vec3 zDir = vec3(0,0,1);
+	vec3 n = normalize(vec3(DE(pos+xDir)-DE(pos-xDir),
+		                DE(pos+yDir)-DE(pos-yDir),
+		                DE(pos+zDir)-DE(pos-zDir)));
+
+		BestHit.dist = t;
+		BestHit.position = at(ray,t);
+		BestHit.normal = -n;
+		BestHit.albedo = vec3(1.,1.,1.) * 10/steps;
+		BestHit.specular = vec3(0);
+		BestHit.emmission = vec3(0.0);
+		BestHit.smoothness = 0;
+		BestHit.transparency = vec3(0.0f,0,0);
+		
+	}
+	
+}
+
 RayHit Trace(Ray ray)
 {
 	RayHit BestHit = CreateRayHit();
@@ -313,6 +420,7 @@ RayHit Trace(Ray ray)
 	{
 		intersectsphere(ray,BestHit,spher[jj]);
 	}
+	IntersectFractal(BestHit,ray);
 	//if(AABB_Intersect(ray,pos[0].xyz,pos[1].xyz)){
 	//	for( int i = 0; i < triangles.length(); i+=1)
 	//	{
@@ -381,13 +489,19 @@ vec3 Shade(inout Ray ray, RayHit hit)
 			}
 			if(hit.transparency.x * fresnel(ray.dir,hit.normal,hit.transparency.y)  >  rand()){ 
 				float dist = distance(ray.origin , hit.position); //returns how far the ray has traveled inside the medium
-				ray.dir = refract(ray.dir,hit.normal, hit.ior);
 				ray.origin = hit.position - hit.normal*0.001; //moves ray into sphere
 				//if(hit.ior > 1) ray.energy *= exp(-dist * vec3(0,0.9,0.9) * 2); //calculates the light only runs for the ray within the 
-				if(hit.ior < 1)		ray.absorb = vec3(0.0,0.0,0.0) * 1;
-				if(hit.ior > 1){	ray.energy *= exp(-dist * ray.absorb);
-									ray.absorb = vec3(0);
-								}
+				if(hit.ior < 1)	{
+				
+					ray.dir = refract(ray.dir,hit.normal, hit.ior);
+					ray.absorb += vec3(0.,0.0,0.0) * 10;
+				}
+				if(hit.ior > 1){
+					float alpha = SmoothnessToPhongAlpha(hit.smoothness);
+					ray.dir = SampleHemisphere(refract(ray.dir,hit.normal,hit.ior),alpha);
+					ray.energy *= exp(-dist * ray.absorb);
+					ray.absorb -= vec3(0.,0.0,0.0) * 10;
+				}
 				return hit.emmission;
 			}
 			hit.albedo = min(1.0-hit.specular,hit.albedo);
@@ -442,7 +556,7 @@ void main(){
 	PixelOffset = vec2(rand(),rand());
 	vec2 uv = vec2((gl_GlobalInvocationID.xy + (PixelOffset))  / dims * 2.0f - 1.0f);
 	Ray ray = CreateCameraRay(uv);
-	for(int i = 0; i<16; i++)
+	for(int i = 0; i<2; i++)
 	{
 		if(!any(testrayenergy(ray.energy))) break;
 		RayHit hit = Trace(ray);

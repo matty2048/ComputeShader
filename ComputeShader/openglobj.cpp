@@ -96,7 +96,7 @@ int main(void)
     const char* vertex = "Vertex.glsl";
     const char* fragment = "Fragment.glsl";
     const char* fragment2 = "Fragment2.glsl";
-    const char* compute = "compute2.glsl";
+    const char* compute = "comp3.glsl";
     GLFWwindow* window;
     /* Initialize the library */
     if (!glfwInit())
@@ -142,16 +142,16 @@ int main(void)
     
     glm::vec4 spheres[]
     {
-       glm::vec4(0.7,-1.1f,-3.f,0.1),glm::vec4(0),
-       glm::vec4(-0.0,-1.0,-1.5f,0.6),glm::vec4(2),
-       glm::vec4(-0.2,-0.5,-0.6f,0.1),glm::vec4(1),
+       glm::vec4(0.7,-1.1f,-3.f,0.4),glm::vec4(0),
+       glm::vec4(-0.0,-0.8,-1.5f,0.6),glm::vec4(2),
+       //glm::vec4(1.3,-0.2,-0.6f,0.1),glm::vec4(1),
     };
 
     glm::vec4 Materials[]
     {
-        glm::vec4(8,103,136,0)/255.f,glm::vec4(0.2,0.2,0.2,0),glm::vec4(0.0),glm::vec4(2.0),glm::vec4(0.f),glm::vec4(0),
+        glm::vec4(8,103,136,0)/255.f,glm::vec4(0.5,0.5,0.5,0),glm::vec4(0.0),glm::vec4(2.0),glm::vec4(0.f),glm::vec4(0),
         glm::vec4(0.0,0.0,0.0,0.0),glm::vec4(0.7,0.7,0.7,0.0),glm::vec4(180.0),glm::vec4(0.0),glm::vec4(0.0f),glm::vec4(0),
-        glm::vec4(1.0f,1.0,1.0,0.0),glm::vec4(1.0,1.0,1.0,0.0),glm::vec4(0.0),glm::vec4(1.0),glm::vec4(1.0f,1.4f,0,0),glm::vec4(0.0f)
+        glm::vec4(1.0f,1.0,1.0,0.0),glm::vec4(1.0,1.0,1.0,0.0),glm::vec4(0.0),glm::vec4(0.9),glm::vec4(1.0f,1.4f,0,0),glm::vec4(0.0f)
     };
 
     glm::vec4 Vertex[]
@@ -193,7 +193,7 @@ int main(void)
     unsigned int ssbo;
     glGenBuffers(1, &ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 6 * 4 * sizeof(float), &spheres, GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 4 * 4 * sizeof(float), &spheres, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo);
 
     unsigned int ssbo_mat;
@@ -224,7 +224,15 @@ int main(void)
         "pz.png",
         "nz.png"
     };
-   
+    //vector<string> faces
+    //{
+    //    "px.png",
+    //    "nx.png",
+    //    "py.png",
+    //    "ny.png",
+    //    "pz.png",
+    //    "nz.png"
+    //};
     unsigned int texid;
     glGenTextures(1,&texid);
     glBindTexture(GL_TEXTURE_CUBE_MAP, texid);
@@ -249,8 +257,8 @@ int main(void)
     glm::mat4 view = glm::mat4(1.0);
     view = glm::translate(view, glm::vec3(-3., 1.0, -4.0));
     //view = glm::lookAt(pos, pos+forward, glm::vec3(0.0, 1.0, 0.0));
-    view = glm::rotate(view, glm::radians(-130.0f), glm::vec3(0,1,0));
-    view = glm::rotate(view, glm::radians(-40.0f), glm::vec3(1, 0, 0));
+    view = glm::rotate(view, glm::radians(-140.0f), glm::vec3(0,1,0));
+    view = glm::rotate(view, glm::radians(-20.0f), glm::vec3(1, 0, 0));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), float(tex_w)/float(tex_h), 0.1f, 100.0f);
     glm::mat4 CameraToWorld = view;
    
@@ -281,7 +289,7 @@ int main(void)
 
     GLuint tex_output;
     glGenTextures(1, &tex_output);
-  
+    
     glBindTexture(GL_TEXTURE_2D, tex_output);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -299,6 +307,9 @@ int main(void)
     //glClear(GL_COLOR_BUFFER_BIT);
     bool moved = false;
     unsigned int numsample = 0;
+    float power = 3;
+    float k = 1;
+    comp.setUniformf("power", power);
     while (!glfwWindowShouldClose(window))
     {
         glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
@@ -310,6 +321,32 @@ int main(void)
         //glm::mat4 CameraToWorld = view;
         //moved = true;
 
+
+        if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+        {
+            moved = true;
+            k += 0.5;
+            comp.setUniformf("k", k);
+        }
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+        {
+            moved = true;
+            k -= 0.5;
+            comp.setUniformf("k", k);
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
+        {
+            moved = true;
+            power += 0.1;
+            comp.setUniformf("power", power);
+        }
+        if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
+        {
+            moved = true;
+            power -= 0.1;
+            comp.setUniformf("power", power);
+        }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         {
             moved = true;
@@ -384,29 +421,31 @@ int main(void)
             //CameraToWorld = view;
         }
 
+           comp.setMat4("CameraToWorld", CameraToWorld);
+        for (int i = 0; i < 1; i++) {
+            comp.setUniformf("seed", frand());
+            // comp.setUniform2f("PixelOffset", glm::vec2(frand(), frand()));
+            comp.use();
 
-        comp.setMat4("CameraToWorld", CameraToWorld);
-         comp.setUniformf("seed", frand());
-         // comp.setUniform2f("PixelOffset", glm::vec2(frand(), frand()));
-        comp.use();
+            glBindTexture(GL_TEXTURE_CUBE_MAP, texid);
+            glDispatchCompute((GLuint)(tex_w / 16), (GLuint)(tex_h / 16), 1);
+            glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-        glBindTexture(GL_TEXTURE_CUBE_MAP, texid);
-        glDispatchCompute((GLuint)(tex_w / 16), (GLuint)(tex_h / 16), 1);
-        glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-        /* Render here */
-       // glClear(GL_COLOR_BUFFER_BIT);
-        glBindVertexArray(VAO);
-       if (moved) {
-           moved = false;
-           glClear(GL_COLOR_BUFFER_BIT);
-           numsample = 1;
-       }
-        shader.setUniformui("_sample", numsample);
-        shader.use();
-       glBindTexture(GL_TEXTURE_2D, tex_output);
-       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-       //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            /* Render here */
+           // glClear(GL_COLOR_BUFFER_BIT);
+            glBindVertexArray(VAO);
+            if (moved) {
+                moved = false;
+                glClear(GL_COLOR_BUFFER_BIT);
+                numsample = 1;
+            }
+            shader.setUniformui("_sample", numsample);
+            shader.use();
+            glBindTexture(GL_TEXTURE_2D, tex_output);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+             numsample++;
+        }
        glBindFramebuffer(GL_FRAMEBUFFER, 0);
        glBindVertexArray(VAO);
       //  glClear(GL_COLOR_BUFFER_BIT);
@@ -417,12 +456,11 @@ int main(void)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
       
         
-       numsample++;
        /* Swap front and back buffers */
        
        glfwSwapBuffers(window);
-       /* Poll for and process events */
        glfwPollEvents();
+       /* Poll for and process events */
     }
 
     glfwTerminate();
