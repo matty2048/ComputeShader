@@ -5,6 +5,7 @@ const float pos_infinity = uintBitsToFloat(0x7F800000);
 const float EPSILON = 1*pow(10,-8);
 
 layout(local_size_x = 16, local_size_y = 16) in;
+
 layout(rgba32f,binding = 0) uniform image2D img_output;
 uniform mat4 CameraToWorld;
 uniform mat4 CameraInverseProjection;
@@ -51,9 +52,37 @@ layout(std430,binding = 3) buffer V
 	tris triangles[];
 };
 
-layout(std430, binding = 4) buffer I 
+layout(std430, binding = 4) buffer I{
+	unsigned int Index[];
+};
+
+
+
+struct Box
 {
-	unsigned int Indicies[];
+	vec4 minpos;
+	vec4 maxpos;
+
+	int triptr; //start of triangle index
+	int nrtri;  //number of triangles
+	ivec2 pad;
+};
+
+layout(std430,binding =5) buffer BBs
+{
+	Box boxes[];
+};
+
+
+struct Node
+{
+	int BBref;
+	uint child[4];
+};
+
+layout(std430,binding = 6) buffer QT
+{
+	Node Nodes[];
 };
 
 //vec3 direction = normalize(vec3(-0.6f,-0.6f,-0.5f));
@@ -240,6 +269,8 @@ void intersectsphere(Ray ray,inout RayHit bestHit, sphere sphere)
 	}
 }
 
+
+
 void IntersectGroundPlain(Ray ray, inout RayHit BestHit)
 {
 	float t = ((-ray.origin.y-1.5) / ray.dir.y) ;
@@ -335,7 +366,6 @@ float DE(vec3 pos) {
 }
 
 
-
 //float DE(vec3 z)
 //{
 //	vec3 a1 = vec3(1,1,1);
@@ -366,52 +396,52 @@ float DE(vec3 pos) {
 //}
 
 
-void IntersectFractal(inout RayHit BestHit,Ray ray)
-{
-	float t = 0;
-	float dt = 0; //sets the initial distance estimate to infinity
-	vec3 from = ray.origin; //gets the origin location of the ray
-	vec3 direction = ray.dir; //the direction of the ray
-	int MaximumRaySteps = 100;
-	float totalDistance = 0;
-	float MinimumDistance = 0.000000001;
-	float mindist = pos_infinity;
-	int steps;
-	for (steps = 0; steps < MaximumRaySteps; steps++) {
-		ray.origin = from + totalDistance * direction;
-		float dist = DE(ray.origin);
-		totalDistance += dist;
-		mindist = min(mindist,dist);
-		if (dist < MinimumDistance) break;
-	}
-
-	
-	t = totalDistance;
-	if(t > 100) t = pos_infinity;
-	else
-	if (t > 0 && t < BestHit.dist)
-	{
-	vec3 pos = at(ray,t);
-	vec3 xDir = vec3(1,0,0);
-	vec3 yDir = vec3(0,1,0);
-	vec3 zDir = vec3(0,0,1);
-	vec3 n = normalize(vec3(DE(pos+xDir)-DE(pos-xDir),
-		                DE(pos+yDir)-DE(pos-yDir),
-		                DE(pos+zDir)-DE(pos-zDir)));
-
-		BestHit.dist = t;
-		BestHit.position = at(ray,t);
-		BestHit.normal = -n;
-		BestHit.albedo = vec3(1.,1.,1.) * 10/steps;
-		BestHit.specular = vec3(0);
-		BestHit.emmission = vec3(0.0);
-		BestHit.smoothness = 0;
-		BestHit.transparency = vec3(0.0f,0,0);
-		
-	}
-	
-}
-
+//void IntersectFractal(inout RayHit BestHit,Ray ray)
+//{
+//	float t = 0;
+//	float dt = 0; //sets the initial distance estimate to infinity
+//	vec3 from = ray.origin; //gets the origin location of the ray
+//	vec3 direction = ray.dir; //the direction of the ray
+//	int MaximumRaySteps = 100;
+//	float totalDistance = 0;
+//	float MinimumDistance = 0.000000001;
+//	float mindist = pos_infinity;
+//	int steps;
+//	for (steps = 0; steps < MaximumRaySteps; steps++) {
+//		ray.origin = from + totalDistance * direction;
+//		float dist = DE(ray.origin);
+//		totalDistance += dist;
+//		mindist = min(mindist,dist);
+//		if (dist < MinimumDistance) break;
+//	}
+//
+//	
+//	t = totalDistance;
+//	if(t > 100) t = pos_infinity;
+//	else
+//	if (t > 0 && t < BestHit.dist)
+//	{
+//	vec3 pos = at(ray,t);
+//	vec3 xDir = vec3(1,0,0);
+//	vec3 yDir = vec3(0,1,0);
+//	vec3 zDir = vec3(0,0,1);
+//	vec3 n = normalize(vec3(DE(pos+xDir)-DE(pos-xDir),
+//		                DE(pos+yDir)-DE(pos-yDir),
+//		                DE(pos+zDir)-DE(pos-zDir)));
+//
+//		BestHit.dist = t;
+//		BestHit.position = at(ray,t);
+//		BestHit.normal = -n;
+//		BestHit.albedo = vec3(1.,1.,1.) * 10/steps;
+//		BestHit.specular = vec3(0);
+//		BestHit.emmission = vec3(0.0);
+//		BestHit.smoothness = 0;
+//		BestHit.transparency = vec3(0.0f,0,0);
+//		
+//	}
+//	
+//}
+int len = Index.length()/3;
 RayHit Trace(Ray ray)
 {
 	RayHit BestHit = CreateRayHit();
@@ -420,17 +450,17 @@ RayHit Trace(Ray ray)
 	{
 		intersectsphere(ray,BestHit,spher[jj]);
 	}
-	IntersectFractal(BestHit,ray);
-	//if(AABB_Intersect(ray,pos[0].xyz,pos[1].xyz)){
-	//	for( int i = 0; i < triangles.length(); i+=1)
-	//	{
-	//	IntersectTriangle_MT97(ray,triangles[i].point[0].xyz,
-	//								triangles[i].point[1].xyz,
-	//								triangles[i].point[2].xyz, 
-	//								BestHit, 
-	//								int(MaterialID.x));
-	//	}
-	//}
+	//IntersectFractal(BestHit,ray);
+	if(AABB_Intersect(ray,pos[0].xyz,pos[1].xyz)){
+		for( int i = 0; i < len; i+=1)
+		{
+		IntersectTriangle_MT97(ray,triangles[i].point[0].xyz,
+									triangles[i].point[1].xyz,
+									triangles[i].point[2].xyz, 
+									BestHit, 
+									int(MaterialID.x));
+		}
+	}
 
 	return BestHit;
 };
@@ -478,15 +508,14 @@ vec3 Shade(inout Ray ray, RayHit hit)
 			if(hit.volumetric.x > 0 )
 			{
 				ray.origin = hit.position - hit.normal*0.001; //moves ray into sphere
-				if(!hit.inside){ ray.absorb = vec3(0.1,0.1,0.1) * 7;
-								
-								}
+				if(!hit.inside){ ray.absorb = vec3(0.1,0.1,0.1) * 7; }
 				if(hit.inside){ 
 								ray.energy *= exp(-dist * ray.absorb);
 								ray.absorb = vec3(0);
 				}
 				return hit.emmission;
 			}
+
 			if(hit.transparency.x * fresnel(ray.dir,hit.normal,hit.transparency.y)  >  rand()){ 
 				float dist = distance(ray.origin , hit.position); //returns how far the ray has traveled inside the medium
 				ray.origin = hit.position - hit.normal*0.001; //moves ray into sphere
@@ -494,16 +523,17 @@ vec3 Shade(inout Ray ray, RayHit hit)
 				if(hit.ior < 1)	{
 				
 					ray.dir = refract(ray.dir,hit.normal, hit.ior);
-					ray.absorb += vec3(0.,0.0,0.0) * 10;
+					ray.absorb += vec3(hit.volumetric.yzw) * 10;
 				}
 				if(hit.ior > 1){
 					float alpha = SmoothnessToPhongAlpha(hit.smoothness);
 					ray.dir = SampleHemisphere(refract(ray.dir,hit.normal,hit.ior),alpha);
 					ray.energy *= exp(-dist * ray.absorb);
-					ray.absorb -= vec3(0.,0.0,0.0) * 10;
+					ray.absorb -= vec3(hit.volumetric.yzw) * 10;
 				}
 				return hit.emmission;
 			}
+
 			hit.albedo = min(1.0-hit.specular,hit.albedo);
 			float specChance = energy(hit.specular);
 			float DiffChance = energy(hit.albedo);
@@ -556,7 +586,7 @@ void main(){
 	PixelOffset = vec2(rand(),rand());
 	vec2 uv = vec2((gl_GlobalInvocationID.xy + (PixelOffset))  / dims * 2.0f - 1.0f);
 	Ray ray = CreateCameraRay(uv);
-	for(int i = 0; i<2; i++)
+	for(int i = 0; i<5; i++)
 	{
 		if(!any(testrayenergy(ray.energy))) break;
 		RayHit hit = Trace(ray);

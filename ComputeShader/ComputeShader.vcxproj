@@ -180,6 +180,7 @@
     <None Include="Compute3.glsl" />
     <None Include="compute4.glsl" />
     <None Include="Fragment.glsl" />
+    <None Include="Fragment2.glsl" />
     <None Include="shader.glsl" />
     <None Include="Vertex.glsl" />
   </ItemGroup>

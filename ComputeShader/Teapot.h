@@ -1,7 +1,7 @@
 #pragma once
 #define teapot_count 5184 
 
-const float teapot[] = {
+float teapot[] = {
 	-1.4,-1.4,-1.4,0,
 	1.4,1.4,1.4,0,
 	0,2,2,2,

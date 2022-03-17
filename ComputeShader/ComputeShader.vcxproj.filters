@@ -42,6 +42,7 @@
     <None Include="Compute3.glsl" />
     <None Include="compute4.glsl" />
     <None Include="comp3.glsl" />
+    <None Include="Fragment2.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="teapot.obj" />

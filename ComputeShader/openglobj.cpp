@@ -90,13 +90,30 @@ MessageCallback(GLenum source,
      return textureID;
  }
 
+
+ std::pair<float, float> findMinMax(float array[], int size, int collum)
+ {
+     std::cout << "a";
+     float min = array[collum];
+     float max = array[collum];
+     for (int i = collum; i < size; i += 4)
+     {
+         if (array[i] < min) min = array[i];
+         if (array[i] > max) max = array[i];
+     }
+     return{ min,max };
+ };
+
+
+
+
 int main(void)
 {
     const char* model = "C:/Users/matthew/source/repos/openglobj/openglobj/mesh.obj";
     const char* vertex = "Vertex.glsl";
     const char* fragment = "Fragment.glsl";
     const char* fragment2 = "Fragment2.glsl";
-    const char* compute = "comp3.glsl";
+    const char* compute = "compute3.glsl";
     GLFWwindow* window;
     /* Initialize the library */
     if (!glfwInit())
@@ -127,6 +144,8 @@ int main(void)
     glDebugMessageCallback(MessageCallback, 0);
     Shader shader(vertex,fragment);
     Shader shader2(vertex, fragment2);
+
+    shader2.setUniformf("exposure", 1.5f);
     Shader comp(compute);
 
     float vertices[] = {
@@ -144,14 +163,15 @@ int main(void)
     {
        glm::vec4(0.7,-1.1f,-3.f,0.4),glm::vec4(0),
        glm::vec4(-0.0,-0.8,-1.5f,0.6),glm::vec4(2),
-       //glm::vec4(1.3,-0.2,-0.6f,0.1),glm::vec4(1),
+      // glm::vec4(1.3,-0.2,-0.6f,0.1),glm::vec4(1),
     };
 
     glm::vec4 Materials[]
     {
-        glm::vec4(8,103,136,0)/255.f,glm::vec4(0.5,0.5,0.5,0),glm::vec4(0.0),glm::vec4(2.0),glm::vec4(0.f),glm::vec4(0),
-        glm::vec4(0.0,0.0,0.0,0.0),glm::vec4(0.7,0.7,0.7,0.0),glm::vec4(180.0),glm::vec4(0.0),glm::vec4(0.0f),glm::vec4(0),
-        glm::vec4(1.0f,1.0,1.0,0.0),glm::vec4(1.0,1.0,1.0,0.0),glm::vec4(0.0),glm::vec4(0.9),glm::vec4(1.0f,1.4f,0,0),glm::vec4(0.0f)
+        glm::vec4(8,103,136,0)/255.f,glm::vec4(0.5,0.5,0.5,0),glm::vec4(0.0),glm::vec4(2.0),glm::vec4(0.f),glm::vec4(0,0,0,0),
+        glm::vec4(16,123,136,0) / 255.f,glm::vec4(0.7,0.7,0.7,0.0),glm::vec4(60.0),glm::vec4(1.5),glm::vec4(0),glm::vec4(0),
+        glm::vec4(1.0f,1.0,1.0,0.0),glm::vec4(1.0,1.0,1.0,0.0),glm::vec4(0.0),glm::vec4(2),glm::vec4(1.0f,1.5f,0,0),glm::vec4(0.0f,0.0,0.0,0.0),
+        glm::vec4(1.0f,1.0,1.0,0.0),glm::vec4(1.0,1.0,1.0,0.0),glm::vec4(0.0),glm::vec4(1.2),glm::vec4(0.0f,0.f,0,0),glm::vec4(0.5f,0.0,0.0,0.0)
     };
 
     glm::vec4 Vertex[]
@@ -161,6 +181,13 @@ int main(void)
         glm::vec4(0.f,5.f,0.f,0.f),
         glm::vec4(2)
     };
+    teapot[0] = findMinMax(teapot, 6924, 0).first;
+    teapot[1] = findMinMax(teapot, 6924, 1).first;
+    teapot[2] = findMinMax(teapot, 6924, 2).first;
+
+    teapot[4] = findMinMax(teapot, 6924, 0).second;
+    teapot[5] = findMinMax(teapot, 6924, 1).second;
+    teapot[6] = findMinMax(teapot, 6924, 2).second;
 
     unsigned int index[teapot_count];
     for (unsigned int i =0; i<teapot_count; i++)
@@ -193,26 +220,26 @@ int main(void)
     unsigned int ssbo;
     glGenBuffers(1, &ssbo);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 4 * 4 * sizeof(float), &spheres, GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 2 * 2 * 4 * sizeof(float), &spheres, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssbo);
 
     unsigned int ssbo_mat;
     glGenBuffers(1, &ssbo_mat);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_mat);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, 4 * 6 * 3 * sizeof(float), &Materials, GL_STATIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, 4 * 6 * 4 * sizeof(float), &Materials, GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, ssbo_mat);
    
     //unsigned int ssbo_tris;
     //glGenBuffers(1, &ssbo_tris);
     //glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_tris);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER,/*(1732-5)*/ 1730* 4* sizeof(float), &teapot, GL_STATIC_DRAW);
+    //glBufferData(GL_SHADER_STORAGE_BUFFER,/*(1732-5)*/ 6924 * sizeof(float), &teapot, GL_STATIC_DRAW);
     //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, ssbo_tris);
     //
-    //unsigned int ssbo_Index;
-    //glGenBuffers(1, &ssbo_Index);
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_Index);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * teapot_count, &index, GL_STATIC_DRAW);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo_Index);
+    unsigned int ssbo_Index;
+    glGenBuffers(1, &ssbo_Index);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo_Index);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(unsigned int) * teapot_count, &index, GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, ssbo_Index);
 
 
     vector<string> faces
@@ -307,8 +334,9 @@ int main(void)
     //glClear(GL_COLOR_BUFFER_BIT);
     bool moved = false;
     unsigned int numsample = 0;
-    float power = 3;
+    float power = 1.5;
     float k = 1;
+
     comp.setUniformf("power", power);
     while (!glfwWindowShouldClose(window))
     {
@@ -339,13 +367,13 @@ int main(void)
         {
             moved = true;
             power += 0.1;
-            comp.setUniformf("power", power);
+            shader2.setUniformf("exposure", power);
         }
         if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS)
         {
             moved = true;
             power -= 0.1;
-            comp.setUniformf("power", power);
+            shader2.setUniformf("exposure", power);
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         {

@@ -6,10 +6,9 @@ out vec4 FragColor;
 in vec2 texcoords;
 //uniform uint _sample; 
 uniform sampler2D texture1;
-
+uniform float exposure;
 void main()
 {
-    float exposure = 1.5;
    const float gamma = 1.2;
    //gonna add some denoising here
     vec3 hdrColor = texture(texture1, texcoords).rgb;
